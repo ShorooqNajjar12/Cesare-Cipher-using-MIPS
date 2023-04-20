@@ -1,0 +1,800 @@
+# Title: First Project   Text Message Encryption and Decryption 					Filename: SimpleEncryption
+# Author: Hasan Hamed and Shorooq Najjar							Date: 25/12/2022
+# Description:a MIPS program that does simple encryption/decryption algorithm based on Caesar cipher algorithm for English- based text messages.
+# Input: Plain Text to be Encrypted or Cipher to be Decrypted using Ceaser Cipher
+# Output: Encrypted Message or Decrypted Message using Ceaser Cipher
+.data
+	fileName: .space 32 	#note: when launching from commandline, files should be within the same folder as Mars.jar
+	CipherOut: .space 32	#Cipher file of encrypted message of encryption option
+	CipherDFileName: .space 32			# cipher file to be decrypted
+	DecryptedFileName: .space 32			#file that decrypted message will be saved  in
+	buffer: .space 1024	#buffer of 1024 to save plain text file
+	modified_buffer: .space 1024	#removing capitals and non alphas
+	new_line: .asciiz "\n"  
+	shiftValue: .byte 0		#saving shift value
+	cipherText: .space 1024		#saving cipher text
+	FinalEncryption: .space 1024		#final cipher to be saved in file
+	CipherTextD: .space 1024		#cipher text reading from file
+	decryptedMessage: .space 1024		# saving decrypted message
+	FinalDecryption: .space 1024		# final decryption saved in file
+	#error strings
+	readErrorMsg: .asciiz "\nError in reading file\n"
+	openErrorMsg: .asciiz "\nError in opening file\n"
+	#Printing Messages
+	Lines: .asciiz "|----------------------|"
+	Menu: .asciiz "|          Menu        |                   "
+	EncryptionMneuMessage: .asciiz "|Enter e For Encryption|"
+	DecryptionMneuMessage: .asciiz "|Enter d For Decryption|"
+	ExitMenuMessage: .asciiz "|Enter q to Quit       |"
+	InputFileNameMessage: .asciiz "Please Enter The Name of the Plain Text File .txt: "
+	PlainTextMessage: .asciiz "The Plain Text File Contains: "
+	EditedText: .asciiz "Trimed Text Is: "
+	ShiftVal: .asciiz "Shift Value Is: "
+	CipherTextMessage: .asciiz "Cipher Text Is: "
+	CipherFileNameMessage: .asciiz "Please Enter The Name of the Cipher Text File .txt: "
+	WriteDone: .asciiz "Writing to File Completed"
+	WritenFile: .asciiz "Written Cipher File Contains: "
+	WrittenDFile: .asciiz "Written Decrypted File Contains: "
+	CipherTextDF: .asciiz "The Cipher Text File Contains: "
+	CipherD: .asciiz "Enter The Name of Cipher File To Decrypt .txt: "
+	ReadingDone: .asciiz "Reading File Done Sucsessfuly"
+	DecryptedMessage: .asciiz "Decrypted Message in File Is: "
+	DecryptedFile: .asciiz "Enter the Name of The Plain Text File to Save the Decrypted Message In: "
+	InvalidOption: .asciiz "Invalid Option"
+	Bye: .asciiz "Bye Bye!"
+	Choice: .asciiz "Your Choice:"
+	Fname: .asciiz "File Name: "
+	noModShiftMessage: .asciiz "The Max Number of Character Is: "
+	WriteErrorMessage: .asciiz "Error Writing to File"
+.text
+	main:
+		menu:											#main menu
+			li $v0, 4
+			la $a0, Lines
+			syscall
+			li $v0, 4
+			la $a0, new_line
+			syscall
+			la $a0, Menu
+			li $v0, 4
+			syscall
+			li $v0, 4
+			la $a0, new_line
+			syscall
+			la $a0, EncryptionMneuMessage
+			li $v0, 4
+			syscall
+			li $v0, 4
+			la $a0, new_line
+			syscall
+			la $a0, DecryptionMneuMessage
+			li $v0, 4
+			syscall
+			li $v0, 4
+			la $a0, new_line
+			syscall
+			la $a0, ExitMenuMessage
+			li $v0, 4
+			syscall
+			li $v0, 4
+			la $a0, new_line
+			syscall
+			li $v0, 4
+			la $a0, Lines
+			syscall
+			li $v0, 4
+			la $a0, new_line
+			syscall
+			li $v0, 4
+			la $a0, Choice
+			syscall
+			li $v0, 4
+			la $a0, new_line
+			syscall
+			li   $v0, 12       
+			syscall            # Read Character
+			move $a1,$v0
+			li $v0, 4
+			la $a0, new_line
+			syscall
+			li $t0, 100						#options ascii codes
+			li $t1, 113
+			li $t2, 101
+			beq $a1, $t0, D
+			beq $a1, $t1, Q
+			beq $a1, $t2, E												#options choosed by user
+			la $a0, InvalidOption
+			li $v0, 4
+			syscall
+			li $v0, 4
+			la $a0, new_line
+			syscall
+			j menu									#if option is invalid return to menu and print invalid option
+########################################################################################################################################################################
+E:
+	jal openFile
+	jal removeNonAlpha
+	jal ShiftValue
+	jal Encryption
+	jal opencipherfile
+	jal openwrittencipherfile						#encryption steps 
+	j menu
+D:
+	jal openCipherFileD
+	jal ShiftValueD
+	jal Decrptyion
+	jal writingDecryption							#decryption steps
+	jal openwrittendecryptedfile
+	j menu
+Q:
+	li $v0, 4					#Quiting option
+	la $a0, Bye
+	syscall
+	j endProgram
+##########################################################################################################################################################################
+openFile:
+	#Open file for for reading purposes
+	la $a0, InputFileNameMessage			
+	li $v0, 4
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	li $v0, 4
+	la $a0, Fname
+	syscall
+	la $a0, fileName				#reading file name from input (must be in the same directory of the MARS tool
+	la $a1, 64
+	li $v0, 8
+	syscall
+	nameClean:
+		li $t0, 0       #loop counter
+		li $t1, 32      #loop end
+		clean:
+    			lb $t3, fileName($t0)
+    			bne $t3, 0x0a, NextChar
+    			sb $zero, fileName($t0)								#removing the endline from input file name or else it won't read the file
+    			j DoneClean
+    		NextChar:
+    		addi $t0, $t0, 1
+		j clean
+	DoneClean:
+	li $v0, 13          #syscall 13 - open file						#opening input file after cleaning the endline
+	la $a0, fileName        #passing in file name
+	li $a1, 0               #set to read mode
+	li $a2, 0               #mode is ignored
+	syscall
+	bltz $v0, openError     #if $v0 is less than 0, there is an error found
+	move $s0, $v0           #else save the file descriptor
+	#Read input from file
+	li $v0, 14          #syscall 14 - read file
+	move $a0, $s0           #sets $a0 to file descriptor
+	la $a1, buffer          #stores read info into buffer
+	li $a2, 1024            #hardcoded size of buffer				#saving the input file contents in the buffer
+	syscall             
+	bltz $v0, readError     #if error it will go to read error
+	li $v0, 4
+	la $a0, ReadingDone
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	li $v0, 4							#printing the file content before trimming
+	la $a0, PlainTextMessage
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	li $v0, 4
+	la $a0, buffer
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	#Close the file 
+	li   $v0, 16       # system call for close file
+	move $a0, $s0      # file descriptor to close
+	syscall            # close file
+	jr $ra
+###################################################################################################################################################################
+openError:
+	la $a0, openErrorMsg			#if error occured in opening the file return to menu
+	li $v0, 4
+	syscall
+	j menu
+readError:
+	la $a0, readErrorMsg
+	li $v0, 4				#if there is an error in reading the file return to menu
+	syscall
+	j menu
+###################################################################################################################################################################
+removeNonAlpha:
+	li $t1,0
+	la $t0,buffer
+	li $t3, 65
+	li $t4, 90										#range of capital letters in ascii table
+	li $t5, 97
+	li $t6, 122										#range of small letters in ascii table
+	la $t7, modified_buffer									# to save the plain text after removing the non alpha chars and changing capital to small
+	li $t2, 10
+	li $t8, 32										# new line and space ascii code from table to save the plain text the same order as before changing it
+	li $s2, 0
+	li $s6, 0
+	addi $s7,$s7,1
+	TrimmingLoop:
+		lb   $a0,0($t0)						#loading characters
+		beqz $a0,DoneTrimming					#if it reads zero then all characters are done
+		addi $t0, $t0, 1
+		bge $a0, $t3, isCapitalCondition2			#if ascii is greater or equal to 65 first conditoin of being capital is verified
+		j CheckMore 						#if not check if it was capital or non alpha
+		isCapitalCondition2:
+			ble $a0, $t4, Lower 		#if ascii is less or equal to 90 second conditoin of being capital is verified and thus it's a capital 
+			j CheckMore 						#if not check if it was capital or non alpha or newline or space
+		Lower:
+			addiu $a0, $a0, 32 				# both are true then its capital add 32 to change the character to small
+			sb $a0, 0($t7)						#save the character in the modified buffer
+			addi $t7,$t7,1						#to save next character
+			addi $s6,$s6,1
+			j TrimmingLoop						# continue trimming 
+		CheckMore:						#checking capital and non alpha and newline and space
+			bge $a0, $t5, SecondCapital			#if ascii is greater or equal to 97 first conditoin of being capital is verified
+			j SpaceNewline					#if not check if it is newline or space or non alpha
+		SecondCapital:
+			ble $a0, $t6,Small  					#if ascii is less or equal to 122 second conditoin of being small is verified and thus it's a small 		
+			j SpaceNewline 						# if not check if it is newline or space or non alpha
+			Small:
+				sb $a0, 0($t7)					#if it was small just save it in the modified buffer
+				addi $s6,$s6,1
+				addi $t7,$t7,1					#read the next character
+				j TrimmingLoop					#continue trimming
+		SpaceNewline:
+			beq $a0, $t2, isNewline			#checking if it's a space
+			beq $a0, $t8, isSpace			#checking if it's a newline
+    			j TrimmingLoop				#if non thus it's a non  alpha just continue trimming and don't save the character in the modified buffer
+		isNewline:
+			sb $a0, 0($t7)			#save the newline in the modified buffer
+			addi $t7,$t7,1			#to read next character
+			move $s2, $0
+			addi $s6,$s6,1
+    			j TrimmingLoop			#continue trimming
+		isSpace:
+			lb $s1, -1($t7)				#to cheic if there is duplicate spaces if trimming a number between spaces
+			beq $a0, $s1, TrimmingLoop
+			beq $s2,$zero, continueTT			#if first character was  non alpha or space remove it (optional)
+			sb $a0, 0($t7)			#save the space in the modified buffer
+			addi $s2,$s2,1
+			addi $t7,$t7,1			#to read next character
+			j TrimmingLoop
+			continueTT:
+			ble $s6, $s7, TrimmingLoop			#to remove first space if exists
+			sb $a0, 0($t7)			#save the space in the modified buffer
+			addi $s2,$s2,1
+			addi $t7,$t7,1			#to read next character
+			j TrimmingLoop
+	DoneTrimming:
+	li $v0, 4
+	la $a0, EditedText
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	li $v0, 4
+	la $a0, modified_buffer			#printing the file content after trimming
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	jr $ra					#return up from were ir was called to preform the next step
+########################################################################################################################################################
+ShiftValue:					#getting the shift value
+	li $t0, 32
+	li $t1, 10				#space and newline ascii code to know that the word has ended
+	la $t2, modified_buffer			#trimmed text to get shift value from
+	li $t4, 0				#counters
+	li $a1, 0
+	ShiftLoop:
+		lb   $a0,0($t2)				#loading characters
+		beqz $a0,DoneShiftLoop			#if the character is zero we are done
+		addi $t2,$t2,1				#next character
+ 		beq $a0, $t0, NewlineorSpace		#if it is a space then the word has ended
+		beq $a0, $t1, NewlineorSpace		#if it is a newline then the word has ended
+		addi $t4, $t4, 1			#else increase he counter to count the number of characters in the word
+		j ShiftLoop				#next character counting
+	NewlineorSpace:
+    		bgt $t4, $a1, Max			#the first value of $a1 will be the first word characters count, if the new word character which is stored in $t4 is more change the value of $a1 which will always contain the number of characters of the longest word
+    		move   $t4, $0				#making the counter zero to count the characters of the next word
+    		j ShiftLoop				#next character counting
+	Max:
+		addi $a1, $t4, 0			#changing the value of $a1 to the nex max value
+		move   $t4, $0				#making the counter zero for the next word count
+		j ShiftLoop
+	DoneShiftLoop:
+		bgt $t4, $a1, LastWordisMax				#since the loop will end after the last word is done this will check if the last word is the max word or not					
+		j DoneFindingShift
+	LastWordisMax:
+		addi $a1, $t4, 0			#changing the value of $a1 to the max value if the last word was the max
+		j DoneFindingShift			#shift value was found
+DoneFindingShift:
+	la $a0,shiftValue
+	sb $a1, 0($a0)
+	li $v0, 4
+	la $a0, noModShiftMessage
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	li $v0, 1
+	la $a1, shiftValue			#printing the max number of character in a word
+	lb $a0,0($a1)
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	la $a0, shiftValue
+	lb $a1, 0($a0)
+	li $t9, 26
+	rem $a1, $a1, 26			#since shift value is between 0 and 26 this will take the mod of the max number of character in case if the word was more than 26 character
+	sb $a1, 0($a0)
+	li $v0, 4
+	la $a0, ShiftVal
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	li $v0, 1
+	la $a1, shiftValue				#printing shift value after mod
+	lb $a0,0($a1)
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	jr $ra				#returning up for the next step
+#############################################################################################################################################################################
+Encryption:				#encryption is here
+	la $t0, modified_buffer		#loading the modified buffer to encrypt
+	li $t1, 32			#space ascii code 
+	li $t2, 10
+	la $t3, cipherText		#to save the cipher text in 
+	la $t4, shiftValue		#loading shift value
+	lb $t5, 0($t4)
+	li $t6, 97			#ascii code of 'a'
+	EncryptionLoop:
+		lb $a0,0($t0)		#loading characters to encrypt
+    		beqz $a0,EncryptionDone		#if zero then done
+    		addi $t0,$t0,1			#next char
+    		beq $a0, $t1, SpacorNewlineEncrypt			#if it's space or newline then...
+  		beq $a0, $t2, SpacorNewlineEncrypt
+  		sub $a0, $a0, $t6			#(ch - 'a' + key) % 26 + 'a' ceaser cipher encryption formula for small letters
+  		add $a0, $a0, $t5
+  		rem $a0, $a0, 26
+  		add $a0, $a0, $t6
+  		sb $a0, 0($t3)				#saving encrypted char
+  		addi $t3,$t3,1				#next char
+  		j EncryptionLoop			#continue enc
+SpacorNewlineEncrypt:
+	sb $a0, 0($t3)				#... save it as it is without encrypting
+	addi $t3,$t3,1				#next char
+	j EncryptionLoop			#continue enc
+EncryptionDone:
+	jr $ra					#if enc is done return to continue steps
+##################################################################################################################################################
+opencipherfile:
+	#Open file for for writing the cipher
+	la $a0, CipherFileNameMessage
+	li $v0, 4
+	syscall
+	la $a0, new_line
+	li $v0, 4
+	syscall
+	li $v0, 4
+	la $a0, Fname
+	syscall
+	la $a0, CipherOut
+	la $a1, 32
+	li $v0, 8			#reading the name of the cipher file to be save in from user
+	syscall
+	CipherFileClean:
+		li $t0, 0       #loop counter
+		li $t1, 32      #loop end
+		CipherFileCleanLoop:
+			beq $t0, $t1, DoneCipherFileClean
+			lb $t3, CipherOut($t0)
+			bne $t3, 0x0a, ContinueCipherFileCleaning
+			sb $zero, CipherOut($t0)
+			j DoneCipherFileClean
+			ContinueCipherFileCleaning:
+				addi $t0, $t0, 1
+				j CipherFileCleanLoop
+DoneCipherFileClean:
+				# writing the cipher in the cipher text
+	li $v0, 13          #syscall 13 - open file
+	la $a0, CipherOut        #passing in file name to write in which was taken from user as input
+	li $a1, 1              #set to write mode
+	li $a2, 0               #mode is ignored
+	syscall
+	bltz $v0, openError     #if $v0 is less than 0, there is an error found
+	move $s0, $v0           #else save the file descriptor
+	#writing to the cipher file
+	li $v0, 15          #syscall 15 - write file
+	move $a0, $s0           #sets $a0 to file descriptor
+	la $a1, cipherText          #data to be written
+	li $t8, 0			#COUNT THE NUMBER OF BYTES TO BE STORED IN THE FILE ACCORING TO THE DATA SIZE
+	WritingSize:
+		lb $t1, 0($a1)
+		beqz $t1, WritingSizedone				#freeing the modified_buffer for the next run
+		addiu $a1, $a1, 1
+		addi $t8,$t8, 1
+		j WritingSize
+	WritingSizedone:
+	la $a1, cipherText          #data to be written
+	move $a2, $t8            #hardcoded size of written data
+	syscall             
+	bltz $v0, writeError     #if error it will go to write error
+	li $v0, 4
+	la $a0, WriteDone
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	#Close the file 
+	li   $v0, 16       # system call for close file
+	move $a0, $s0      # file descriptor to close
+	syscall            # close file
+	jr $ra
+openwrittencipherfile:					#displaying the cipher file after saving cipher in it
+	li $v0, 13          #syscall 13 - open file
+	la $a0, CipherOut        #passing in file name
+	li $a1, 0              #set to read mode
+	li $a2, 0               #mode is ignored
+	syscall
+	bltz $v0, openError     #if $v0 is less than 0, there is an error found
+	move $s0, $v0           #else save the file descriptor
+	#Read input from file
+	li $v0, 14	        #syscall 14 - read filea
+	move $a0, $s0           #sets $a0 to file descriptor
+	la $a1, FinalEncryption          #stores read info into buffer
+	li $a2, 1024            #hardcoded size of buffer
+	syscall             
+	bltz $v0, readError     #if error it will go to read error
+	li $v0, 4
+	la $a0, WritenFile
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	li $v0, 4
+	la $a0, FinalEncryption					#printing cipher file data after writing
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	#Close the file 
+	li   $v0, 16       # system call for close file
+	move $a0, $s0      # file descriptor to close
+	syscall            # close file
+	la $t0,buffer	
+	freebuffer:
+		lbu $t1, 0($t0)
+		beqz $t1, freebufferdone				#freeing the buffer for the next run
+		lui $t8,0
+		sb $t8,0($t0)
+		addiu $t0, $t0, 1
+		j freebuffer
+	freebufferdone:
+	la $t0,modified_buffer	
+	freemodified_buffer:
+		lbu $t1, 0($t0)
+		beqz $t1, freemodified_bufferdone				#freeing the modified_buffer for the next run
+		lui $t8,0
+		sb $t8,0($t0)
+		addiu $t0, $t0, 1
+		j freemodified_buffer
+	freemodified_bufferdone:
+		la $t0,cipherText
+	freecipherText:
+		addiu $t0, $t0, 1
+		lbu $t1, 0($t0)
+		beqz $t1, freecipherTextdone				#freeing the cipherText for the next run
+		lui $t8,0
+		sb $t8,0($t0)
+		j freecipherText
+	freecipherTextdone:	
+	freeFinalEncryption:
+		lbu $t1, 0($t0)
+		beqz $t1, freeFinalEncryptiondone				#freeing the FinalEncryption for the next run
+		lui $t8,0
+		sb $t8,0($t0)
+		addiu $t0, $t0, 1
+		j freeFinalEncryption
+	freeFinalEncryptiondone:
+	jr $ra
+########################################################################################################################################################
+openCipherFileD:
+	la $a0, CipherD
+	li $v0, 4
+	syscall
+	li $v0, 4
+	la $a0, new_line				#taking the name of cipher file to decrypt from user
+	syscall
+	li $v0, 4
+	la $a0, Fname
+	syscall
+	la $a0, CipherDFileName
+	la $a1, 64
+	li $v0, 8
+	syscall
+	#Open file for for reading purposes
+	CipherDFileNameClean:
+		li $t0, 0       #loop counter
+		li $t1, 32      #loop end
+		CipherDFileClean:
+			beq $t0, $t1, CipherDFileCleanDone
+			lb $t3, CipherDFileName($t0)
+			bne $t3, 0x0a, CipherDFileCleanContinue
+			sb $zero, CipherDFileName($t0)
+			CipherDFileCleanContinue:
+			addi $t0, $t0, 1
+			j CipherDFileClean
+CipherDFileCleanDone:
+			#reading cipher file to decrypt
+	li $v0, 13          #syscall 13 - open file
+	la $a0, CipherDFileName        #passing in file name
+	li $a1, 0               #set to read mode
+	li $a2, 0               #mode is ignored
+	syscall
+	bltz $v0, openError     #if $v0 is less than 0, there is an error found
+	move $s0, $v0           #else save the file descriptor
+	#Read input from file
+	li $v0, 14          #syscall 14 - read filea
+	move $a0, $s0           #sets $a0 to file descriptor
+	la $a1, CipherTextD          #stores read info into buffer
+	li $a2, 1024            #hardcoded size of buffer
+	syscall             
+	bltz $v0, readError     #if error it will go to read error
+	li $v0, 4
+	la $a0, ReadingDone
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	li $v0, 4
+	la $a0, CipherTextDF			#printing the cipher read from input cipher file to decrypt
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	li $v0, 4
+	la $a0, CipherTextD
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	#Close the file 
+	li   $v0, 16       # system call for close file
+	move $a0, $s0      # file descriptor to close
+	syscall            # close file
+jr $ra			#jump up to continue decrypting
+ShiftValueD:
+	li $t0, 32
+	li $t1, 10
+	la $t2, CipherTextD					#getting the shift value from the encrypted file
+	li $t4, 0
+	li $a1, 0
+	ShiftValueDLoop:
+		lb   $a0,0($t2)
+		beqz $a0,ShiftValueDLoopDone					#same steps as finding the the shift value from the  plain text
+		addi $t2,$t2,1
+		beq $a0, $t0, SpaceorNewlineD
+		beq $a0, $t1, SpaceorNewlineD
+		addi $t4, $t4, 1
+		j ShiftValueDLoop
+SpaceorNewlineD:
+    bgt $t4, $a1, MaxD
+    move   $t4, $0
+    j ShiftValueDLoop
+MaxD:
+    addi $a1, $t4, 0
+    move   $t4, $0
+    j ShiftValueDLoop
+ShiftValueDLoopDone:
+    bgt $t4, $a1, LastWordDisMax
+    j ShiftValueDDone
+LastWordDisMax:
+    addi $a1, $t4, 0
+    j ShiftValueDDone
+ShiftValueDDone:
+	la $a0, shiftValue
+	sb $a1,0($a0)
+	li $v0, 4
+	la $a0, noModShiftMessage
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	li $v0, 1
+	la $a1, shiftValue
+	lb $a0,0($a1)
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	la $a0, shiftValue
+	li $t9, 26
+	lb $a1, 0($a0)
+	rem $a1, $a1, 26
+	sb $a1, 0($a0)
+	li $v0, 4
+	la $a0, ShiftVal
+	syscall
+	li $v0, 4
+	la $a0, new_line			#printing shift value
+	syscall
+	li $v0, 1
+	la $a1, shiftValue
+	lb $a0,0($a1)
+	syscall
+	li $v0, 4
+	la $a0, new_line			#printing shift value
+	syscall
+jr $ra
+Decrptyion:			#decryption the cipher read from user
+	la $t0, CipherTextD			#cipher text read from file is stored here
+	li $t1, 32
+	li $t2, 10
+	la $t3, decryptedMessage
+	la $t4, shiftValue
+	lb $t5, 0($t4)			#shift value
+	li $t6, 97			#ascii code of 'a'
+	DecryptionLoop:
+		lb $a0,0($t0)				#loading characters to decrypt
+    		beqz $a0,DecryptionDone			#if zero then done
+    		addi $t0,$t0,1				#next character
+    		beq $a0, $t1, SpaceorNewlineDecryption				#if space or newline then...........
+  		beq $a0, $t2, SpaceorNewlineDecryption
+  		sub $a0, $a0, $t6
+  		sub $a0, $a0, $t5			#(ch - 'a' - key + 26) % 26 + 'a' ceaser cipher decryption for small letters
+  		addi $a0,$a0, 26
+  		rem $a0, $a0, 26
+  		add $a0, $a0, $t6
+  		sb $a0, 0($t3)				#storing decrypted char
+  		addi $t3,$t3,1			#next char
+		j DecryptionLoop		#continue dec
+		SpaceorNewlineDecryption:
+			sb $a0, 0($t3)					#dont do anything and save it as it is
+			addi $t3,$t3,1					#next char
+			j DecryptionLoop
+DecryptionDone:
+jr $ra					#decryption done jump up to continue dec
+###############################################################################################################
+writingDecryption:			#writing decrypted message in the plaintext file
+	li $v0, 4
+	la $a0, DecryptedFile
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	li $v0, 4
+	la $a0, Fname
+	syscall
+	la $a0, DecryptedFileName
+	la $a1, 32							#getting decryption file to be writting in from user
+	li $v0, 8
+	syscall
+	PlainFileClean:
+		li $t0, 0       #loop counter
+		li $t1, 32      #loop end
+	PlainFileCleanLoop:
+		beq $t0, $t1, PlainFileCleanDone
+		lb $t3, DecryptedFileName($t0)
+		bne $t3, 0x0a, PlainFileCleanContinue
+		sb $zero, DecryptedFileName($t0)
+		j PlainFileCleanDone
+		PlainFileCleanContinue:
+		addi $t0, $t0, 1
+		j PlainFileCleanLoop
+PlainFileCleanDone:				#writting decrypted message in the file the user enter
+	li $v0, 13          #syscall 13 - open file
+	la $a0, DecryptedFileName        #passing in file name
+	li $a1, 1              #set to write mode
+	li $a2, 0               #mode is ignored
+	syscall
+	bltz $v0, openError     #if $v0 is less than 0, there is an error found
+	move $s0, $v0           #else save the file descriptor
+	#Read input from file
+	li $v0, 15          #syscall 15 - writing filea
+	move $a0, $s0           #sets $a0 to file descriptor
+	la $a1, decryptedMessage          #writing data
+	li $t8, 0			#COUNT THE NUMBER OF BYTES TO BE STORED IN THE FILE ACCORING TO THE DATA SIZE
+	WritingSize1:
+		lb $t1, 0($a1)
+		beqz $t1, WritingSizedone1				#freeing the modified_buffer for the next run
+		addiu $a1, $a1, 1
+		addi $t8,$t8, 1
+		j WritingSize1
+	WritingSizedone1:
+	la $a1, decryptedMessage          #data to be written
+	move $a2, $t8            #hardcoded size of written data
+	syscall             
+	bltz $v0, writeError     #if error it will go to write error
+	li $v0, 4
+	la $a0, WriteDone
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	#Close the file 
+	li   $v0, 16       # system call for close file
+	move $a0, $s0      # file descriptor to close
+	syscall            # close file
+	jr $ra				#return to finish decryption
+###################################################################################################################################################################
+openwrittendecryptedfile:				#opening the decryption file to print the decrypted message stored in it
+	li $v0, 13          #syscall 13 - open file
+	la $a0, DecryptedFileName        #passing in file name
+	li $a1, 0              #set to read mode
+	li $a2, 0               #mode is ignored
+	syscall
+	bltz $v0, openError     #if $v0 is less than 0, there is an error found
+	move $s0, $v0           #else save the file descriptor
+	#Read input from file
+	li $v0, 14	        #syscall 14 - read filea
+	move $a0, $s0           #sets $a0 to file descriptor
+	la $a1, FinalDecryption          #stores read info into buffer
+	li $a2, 1024            #hardcoded size of buffer
+	syscall             
+	bltz $v0, readError     #if error it will go to read error
+	li $v0, 4
+	la $a0, WrittenDFile
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	li $v0, 4
+	la $a0, FinalDecryption									#printing the decrypted data stored in the file
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	#Close the file 
+	li   $v0, 16       # system call for close file
+	move $a0, $s0      # file descriptor to close
+	syscall            # close file
+	la $t0,CipherTextD	
+	freeCipherTextD:
+		lbu $t1, 0($t0)
+		beqz $t1, freeCipherTextDdone				#freeing the CipherTextD for the next run
+		lui $t8,0
+		sb $t8,0($t0)
+		addiu $t0, $t0, 1
+		j freeCipherTextD
+	freeCipherTextDdone:
+	la $t0,decryptedMessage	
+	freedecryptedMessage:
+		lbu $t1, 0($t0)
+		beqz $t1, freedecryptedMessagedone				#freeing the decryptedMessage for the next run
+		lui $t8,0
+		sb $t8,0($t0)
+		addiu $t0, $t0, 1
+		j freedecryptedMessage
+	freedecryptedMessagedone:
+		la $t0,FinalDecryption	
+	freeFinalDecryption:
+		lbu $t1, 0($t0)
+		beqz $t1, freeFinalDecryptiondone				#freeing the FinalDecryption for the next run
+		lui $t8,0
+		sb $t8,0($t0)
+		addiu $t0, $t0, 1
+		j freeFinalDecryption
+	freeFinalDecryptiondone:
+	jr $ra
+endProgram:
+	li $v0, 10
+	syscall
+writeError:
+	li $v0, 4
+	la $a0, WriteErrorMessage
+	syscall
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	j menu
